@@ -35,27 +35,27 @@ namespace MultiplayerTime
             this.Config = (ModConfig)helper.ReadConfig<ModConfig>();
             if (this.Config.Active)
             {
-                GameEvents.UpdateTick += new EventHandler(this.GameEvents_UpdateTick);
-                GraphicsEvents.OnPreRenderHudEvent += (new EventHandler(this.PreRenderHud));
-                GraphicsEvents.OnPostRenderHudEvent += (new EventHandler(this.PostRenderHud));
-                GraphicsEvents.OnPostRenderEvent += (new EventHandler(this.RenderClock));
-                SaveEvents.AfterLoad += (new EventHandler(this.Statement));
+                Helper.Events.GameLoop.UpdateTicked += this.GameEvents_UpdateTick;
+                Helper.Events.Display.RenderingHud += this.PreRenderHud;
+                Helper.Events.Display.RenderedHud += this.PostRenderHud;
+                Helper.Events.Display.Rendered += this.RenderClock;
+                Helper.Events.GameLoop.Saved += this.Statement;
             }
-            InputEvents.ButtonPressed += new EventHandler<EventArgsInput>(this.ButtonPressed);
-            SaveEvents.BeforeSave += (new EventHandler(this.Save));
-            SaveEvents.AfterLoad += (new EventHandler(this.Save));
+            Helper.Events.Input.ButtonPressed += new EventHandler<ButtonPressedEventArgs>(this.ButtonPressed);
+            Helper.Events.GameLoop.Saving += this.Save;
+            Helper.Events.GameLoop.Saved += this.Save;
         }
-        private void ButtonPressed(object sender, EventArgsInput e)
+        private void ButtonPressed(object sender, ButtonPressedEventArgs e)
         {
             if (e.Button== this.Config.ActivationKey)
             {
                 if (this.Config.Active)
                 {
                     this.Config.Active = false;
-                    GameEvents.UpdateTick -= new EventHandler(this.GameEvents_UpdateTick);
-                    GraphicsEvents.OnPreRenderHudEvent -= (new EventHandler(this.PreRenderHud));
-                    GraphicsEvents.OnPostRenderHudEvent -= (new EventHandler(this.PostRenderHud));
-                    GraphicsEvents.OnPostRenderEvent -= (new EventHandler(this.RenderClock));
+                    Helper.Events.GameLoop.UpdateTicked -= this.GameEvents_UpdateTick;
+                    Helper.Events.Display.RenderingHud -= this.PreRenderHud;
+                    Helper.Events.Display.RenderedHud -= this.PostRenderHud;
+                    Helper.Events.Display.Rendered -= this.RenderClock;
                     this.Helper.WriteConfig(Config);
                     if (Context.IsWorldReady)
                     {
@@ -76,10 +76,10 @@ namespace MultiplayerTime
                 else
                 {
                     this.Config.Active = true;
-                    GameEvents.UpdateTick += new EventHandler(this.GameEvents_UpdateTick);
-                    GraphicsEvents.OnPreRenderHudEvent += (new EventHandler(this.PreRenderHud));
-                    GraphicsEvents.OnPostRenderHudEvent += (new EventHandler(this.PostRenderHud));
-                    GraphicsEvents.OnPostRenderEvent += (new EventHandler(this.RenderClock));
+                    Helper.Events.GameLoop.UpdateTicked += this.GameEvents_UpdateTick;
+                    Helper.Events.Display.RenderingHud += this.PreRenderHud;
+                    Helper.Events.Display.RenderedHud += this.PostRenderHud;
+                    Helper.Events.Display.Rendered += this.RenderClock;
                     this.Helper.WriteConfig(Config);
                     if (Context.IsWorldReady)
                     {
