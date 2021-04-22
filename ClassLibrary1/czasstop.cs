@@ -193,29 +193,43 @@ namespace MultiplayerTime
         private void Save(object sender, EventArgs e)
         {
             Game1.player.MagneticRadius = 128;
-            if (Game1.player.rightRing != null && Game1.player.rightRing.Value != null && Game1.player.rightRing.Value.indexInTileSheet == 518)
+            if (Game1.player.rightRing?.Value is StardewValley.Objects.Ring rightRing)
             {
-                Game1.player.MagneticRadius += 64;
+                if (rightRing.GetsEffectOfRing(518))
+                {
+                    Game1.player.MagneticRadius += 64;
+                }
+                if (rightRing.GetsEffectOfRing(519))
+                {
+                    Game1.player.MagneticRadius += 128;
+                }
+                if (rightRing.GetsEffectOfRing(527))
+                {
+                    Game1.player.MagneticRadius += 128;
+                }
+                if (rightRing.GetsEffectOfRing(888))
+                {
+                    Game1.player.MagneticRadius += 128;
+                }
             }
-            if (Game1.player.leftRing != null && Game1.player.leftRing.Value != null && Game1.player.leftRing.Value.indexInTileSheet == 518)
+            if (Game1.player.leftRing?.Value is StardewValley.Objects.Ring leftRing)
             {
-                Game1.player.MagneticRadius += 64;
-            }
-            if (Game1.player.rightRing != null && Game1.player.rightRing.Value != null && Game1.player.rightRing.Value.indexInTileSheet == 519)
-            {
-                Game1.player.MagneticRadius += 128;
-            }
-            if (Game1.player.leftRing != null && Game1.player.leftRing.Value != null && Game1.player.leftRing.Value.indexInTileSheet == 519)
-            {
-                Game1.player.MagneticRadius += 128;
-            }
-            if (Game1.player.rightRing != null && Game1.player.rightRing.Value != null && Game1.player.rightRing.Value.indexInTileSheet == 527)
-            {
-                Game1.player.MagneticRadius += 128;
-            }
-            if (Game1.player.leftRing != null && Game1.player.leftRing.Value != null && Game1.player.leftRing.Value.indexInTileSheet == 527)
-            {
-                Game1.player.MagneticRadius += 128;
+                if (leftRing.GetsEffectOfRing(518))
+                {
+                    Game1.player.MagneticRadius += 64;
+                }
+                if (leftRing.GetsEffectOfRing(519))
+                {
+                    Game1.player.MagneticRadius += 128;
+                }
+                if (leftRing.GetsEffectOfRing(527))
+                {
+                    Game1.player.MagneticRadius += 128;
+                }
+                if (leftRing.GetsEffectOfRing(888))
+                {
+                    Game1.player.MagneticRadius += 128;
+                }
             }
             difference = true;
         }
