@@ -49,8 +49,6 @@ namespace MultiplayerTime
         List<PlayerList> Gracze = new();
         PlayerList Me = new(0);
         Vector2 PasekPosition = new(44, 240);
-        Vector2 PasekPositionColor = new(68, 264);
-        Vector2 PasekZoomPositionColor = new(68, 292);
         Color textColor=Game1.textColor;
         Texture2D Pasek;
         Texture2D PasekWithUIS;
@@ -83,12 +81,6 @@ namespace MultiplayerTime
             Helper.Events.Multiplayer.PeerConnected += this.PlayerConnected;
             Helper.Events.Multiplayer.PeerDisconnected += this.PlayerDisconnected;
             Helper.Events.Multiplayer.ModMessageReceived += this.OnModMessageRecieved;
-            if (this.Config.UiInfoSuite)
-            {
-                PasekPosition.Y += 42;
-                PasekPositionColor.Y += 42;
-                PasekZoomPositionColor.Y += 42;
-            }
         }
 
         private void OnLaunched(object sender, GameLaunchedEventArgs e)
@@ -172,7 +164,7 @@ namespace MultiplayerTime
                 }
                 if(e.Button == SButton.MouseLeft && this.Config.Active && Context.IsMultiplayer)
                 {
-                    if (Game1.options.zoomButtons && new Rectangle((int)((Game1.dayTimeMoneyBox.position.X + PasekZoomPositionColor.X) * Game1.options.uiScale), (int) ((Game1.dayTimeMoneyBox.position.Y + PasekZoomPositionColor.Y)*Game1.options.uiScale),(int) (108 * Game1.options.uiScale), (int) (24 * Game1.options.uiScale)).Contains(Game1.getMouseX(), Game1.getMouseY()))
+                    if (new Rectangle((int)((Game1.dayTimeMoneyBox.position.X + PasekPosition.X + 24) * Game1.options.uiScale), (int) ((Game1.dayTimeMoneyBox.position.Y + PasekPosition.Y + (Game1.options.zoomButtons ? 52 : 24))*Game1.options.uiScale),(int) (108 * Game1.options.uiScale), (int) (24 * Game1.options.uiScale)).Contains(Game1.getMouseX(), Game1.getMouseY()))
                     {
                         foreach (PlayerList gracz in Gracze)
                         {
@@ -183,24 +175,6 @@ namespace MultiplayerTime
                                     Game1.chatBox.addMessage(farmer.Name + " does not have Multiplayer Time mod", Color.Red);
                                 }
                                 else if(gracz.message != 1 && gracz.PlayerID == farmer.UniqueMultiplayerID)
-                                {
-                                    Game1.chatBox.addMessage("Time doesn't freeze because of " + farmer.Name, Color.White);
-                                }
-                            }
-                        }
-                        this.Helper.Input.Suppress(SButton.MouseLeft);
-                    }
-                    if(!Game1.options.zoomButtons && new Rectangle((int) ((Game1.dayTimeMoneyBox.position.X + PasekPositionColor.X) * Game1.options.uiScale),(int) ((Game1.dayTimeMoneyBox.position.Y + PasekPositionColor.Y) * Game1.options.uiScale), (int) (108 * Game1.options.uiScale), (int) (24 * Game1.options.uiScale)).Contains(Game1.getMouseX(), Game1.getMouseY()))
-                    {
-                        foreach (PlayerList gracz in Gracze)
-                        {
-                            foreach (Farmer farmer in Game1.getOnlineFarmers())
-                            {
-                                if (gracz.message == -1 && gracz.PlayerID == farmer.UniqueMultiplayerID && Context.IsMainPlayer)
-                                {
-                                    Game1.chatBox.addMessage(farmer.Name + " does not have Multiplayer Time mod", Color.Red);
-                                }
-                                else if (gracz.message != 1 && gracz.PlayerID == farmer.UniqueMultiplayerID)
                                 {
                                     Game1.chatBox.addMessage("Time doesn't freeze because of " + farmer.Name, Color.White);
                                 }
@@ -222,19 +196,17 @@ namespace MultiplayerTime
             {
                 Game1.chatBox.addMessage("Multiplayer time Mod turned off", Color.White);
             }
-            if (Gracze.Count == 0)
+            Gracze.Clear();
+            foreach (Farmer farmer in Game1.getOnlineFarmers())
             {
-                foreach(Farmer farmer in Game1.getOnlineFarmers())
+                if (Game1.player.UniqueMultiplayerID == farmer.UniqueMultiplayerID)
                 {
-                    if (Game1.player.UniqueMultiplayerID == farmer.UniqueMultiplayerID)
-                    {
-                        Me.PlayerID = farmer.UniqueMultiplayerID;
-                        Gracze.Add(Me);
-                    }
-                    else
-                    {
-                        Gracze.Add(new PlayerList(farmer.UniqueMultiplayerID));
-                    }
+                    Me.PlayerID = farmer.UniqueMultiplayerID;
+                    Gracze.Add(Me);
+                }
+                else
+                {
+                    Gracze.Add(new PlayerList(farmer.UniqueMultiplayerID));
                 }
             }
         }
@@ -463,7 +435,7 @@ namespace MultiplayerTime
             }
         }
 
-        private string[] MonsterInfo(string name) {
+        private static string[] MonsterInfo(string name) {
             return Game1.content.Load<Dictionary<string, string>>("Data\\Monsters")[name].Split(new char[]
             {
                 '/'
@@ -509,55 +481,28 @@ namespace MultiplayerTime
             int i = 0;
             if (this.Config.UiInfoSuite)
             {
-                b.Draw(PasekWithUIS, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2 (0,-42), null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
+                b.Draw(PasekWithUIS, Game1.dayTimeMoneyBox.position + PasekPosition, null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
             }
-            if (Game1.options.zoomButtons)
+            b.Draw(Game1.options.zoomButtons ? PasekZoom : Pasek, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2 (0, this.Config.UiInfoSuite ? 42 : 0), null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
+            foreach (PlayerList gracz in Gracze)
             {
-                b.Draw(PasekZoom, Game1.dayTimeMoneyBox.position + PasekPosition, null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
-                foreach (PlayerList gracz in Gracze)
+                if (gracz.message != 1)
                 {
-                    if (gracz.message != 1)
+                    b.Draw(Blue, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24,Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
+                    if (Context.IsMainPlayer && gracz.message == -1)
                     {
-                        b.Draw(Blue, Game1.dayTimeMoneyBox.position + PasekZoomPositionColor + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
-                        if (Context.IsMainPlayer && gracz.message == -1)
-                        {
-                            b.Draw(Red, Game1.dayTimeMoneyBox.position + PasekZoomPositionColor + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
-                        }
+                        b.Draw(Red, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
                     }
-                    else
-                    {
-                        b.Draw(Green, Game1.dayTimeMoneyBox.position + PasekZoomPositionColor + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
-                    }
-                    if (i != Game1.getOnlineFarmers().Count - 1)
-                    {
-                        b.Draw(Black, Game1.dayTimeMoneyBox.position + PasekZoomPositionColor + new Vector2(i * (width + 4) + width, 0), new Rectangle(i * (width + 4) + width, 0, 4, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
-                    }
-                    i++;
                 }
-            }
-            else
-            {
-                b.Draw(Pasek, Game1.dayTimeMoneyBox.position + PasekPosition, null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
-                foreach (PlayerList gracz in Gracze)
+                else
                 {
-                    if (gracz.message != 1)
-                    {
-                        b.Draw(Blue, Game1.dayTimeMoneyBox.position + PasekPositionColor + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
-                        if (Context.IsMainPlayer && gracz.message == -1)
-                        {
-                            b.Draw(Red, Game1.dayTimeMoneyBox.position + PasekPositionColor + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
-                        }
-                    }
-                    else
-                    {
-                        b.Draw(Green, Game1.dayTimeMoneyBox.position + PasekPositionColor + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
-                    }
-                    if (i != Game1.getOnlineFarmers().Count - 1)
-                    {
-                        b.Draw(Black, Game1.dayTimeMoneyBox.position + PasekPositionColor + new Vector2(i * (width + 4) + width, 0), new Rectangle(i * (width + 4) + width, 0, 4, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
-                    }
-                    i++;
+                    b.Draw(Green, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
                 }
+                if (i != Game1.getOnlineFarmers().Count - 1)
+                {
+                    b.Draw(Black, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4) + width, 0), new Rectangle(i * (width + 4) + width, 0, 4, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
+                }
+                i++;
             }
         }
     }
