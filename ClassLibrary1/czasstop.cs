@@ -21,6 +21,8 @@ namespace MultiplayerTime
         public bool Active { get; set; } = true;
         public bool UiInfoSuite { get; set; } = false;
         public bool InvisibleUI { get; set; } = false;
+        public string HourFormat { get; set; } = "Default";
+
     }
 
     public class PlayerList
@@ -51,7 +53,7 @@ namespace MultiplayerTime
         public Monster monster;
         public int info;
         public int Health;
-        
+
         public Potwory(Monster m, int i, int h)
         {
             monster = m;
@@ -64,6 +66,7 @@ namespace MultiplayerTime
         void Register(IManifest mod, Action reset, Action save, bool titleScreenOnly = false);
         void AddBoolOption(IManifest mod, Func<bool> getValue, Action<bool> setValue, Func<string> name, Func<string> tooltip = null, string fieldId = null);
         void AddKeybind(IManifest mod, Func<SButton> getValue, Action<SButton> setValue, Func<string> name, Func<string> tooltip = null, string fieldId = null);
+        void AddTextOption(IManifest mod, Func<string> getValue, Action<string> setValue, Func<string> name, Func<string> tooltip = null, string[] allowedValues = null, Func<string, string> formatAllowedValue = null, string fieldId = null);
     }
 
     class MultiplayerTimeMod : Mod
@@ -84,10 +87,9 @@ namespace MultiplayerTime
         readonly PlayerList Me = new(0);
         readonly List<GameLocation> locations = new();
         readonly List<Buffs> buffs = new();
-        Buffs food;
-        Buffs drink;
+        bool hourFormat;
         Vector2 PasekPosition = new(44, 240);
-        Color textColor=Game1.textColor;
+        Color textColor = Game1.textColor;
         Texture2D Pasek;
         Texture2D PasekWithUIS;
         Texture2D PasekZoom;
@@ -98,6 +100,9 @@ namespace MultiplayerTime
         private ModConfig Config;
         public override void Entry(IModHelper helper)
         {
+            this.Config = (ModConfig)helper.ReadConfig<ModConfig>();
+
+            Pasek = helper.ModContent.Load<Texture2D>("assets/Pasek.png");
             Pasek = helper.ModContent.Load<Texture2D>("assets/Pasek.png");
             PasekWithUIS = helper.ModContent.Load<Texture2D>("assets/PasekWithUIS.png");
             PasekZoom = helper.ModContent.Load<Texture2D>("assets/PasekZoom.png");
@@ -105,7 +110,27 @@ namespace MultiplayerTime
             Blue = helper.ModContent.Load<Texture2D>("assets/Blue.png");
             Green = helper.ModContent.Load<Texture2D>("assets/Green.png");
             Red = helper.ModContent.Load<Texture2D>("assets/Red.png");
-            this.Config = (ModConfig)helper.ReadConfig<ModConfig>();
+
+            if(this.Config.HourFormat == "Default")
+            {
+                if(Helper.Translation.Get("Default") == "12")
+                {
+                    hourFormat = true;
+                }
+                else
+                {
+                    hourFormat = false;
+                }
+            }
+            else if (this.Config.HourFormat == "12")
+            {
+                hourFormat = true;
+            }
+            else
+            {
+                hourFormat = false;
+            }
+
             if (this.Config.Active)
             {
                 Helper.Events.GameLoop.UpdateTicked += this.GameEvents_UpdateTick;
@@ -119,6 +144,8 @@ namespace MultiplayerTime
             Helper.Events.Multiplayer.PeerConnected += this.PlayerConnected;
             Helper.Events.Multiplayer.PeerDisconnected += this.PlayerDisconnected;
             Helper.Events.Multiplayer.ModMessageReceived += this.OnModMessageRecieved;
+            Helper.Events.Content.LocaleChanged += this.OnLocaleChanged;
+            Helper.Events.GameLoop.ReturnedToTitle += this.OnTitle;
         }
 
         private void OnLaunched(object sender, GameLaunchedEventArgs e)
@@ -138,7 +165,7 @@ namespace MultiplayerTime
                 getValue: () => this.Config.ActivationKey,
                 setValue: value => this.Config.ActivationKey = value
             );
-            
+
             api.AddBoolOption(
                 mod: this.ModManifest,
                 name: () => "Active",
@@ -162,13 +189,22 @@ namespace MultiplayerTime
                 getValue: () => this.Config.InvisibleUI,
                 setValue: value => this.Config.InvisibleUI = value
             );
+
+            api.AddTextOption(
+                mod: this.ModManifest,
+                name: () => "Hour Format",
+                tooltip: () => "Use default hour format for selected language or force 12 or 24 hour format if you use other mods that can change hour format",
+                getValue: () => this.Config.HourFormat,
+                setValue: value => this.Config.HourFormat = value,
+                allowedValues: new string[] { "Default", "12", "24"}
+            );
         }
 
         private void ButtonPressed(object sender, ButtonPressedEventArgs e)
         {
             if (Context.IsWorldReady)
             {
-                if (e.Button== this.Config.ActivationKey)
+                if (e.Button == this.Config.ActivationKey)
                 {
                     if (this.Config.Active)
                     {
@@ -201,7 +237,7 @@ namespace MultiplayerTime
                 }
                 if (e.Button == SButton.MouseLeft && this.Config.Active && Context.IsMultiplayer)
                 {
-                    if (new Rectangle((int)((Game1.dayTimeMoneyBox.position.X + PasekPosition.X + 24) * Game1.options.uiScale), (int) ((Game1.dayTimeMoneyBox.position.Y + PasekPosition.Y + (Game1.options.zoomButtons ? 52 : 24))*Game1.options.uiScale),(int) (108 * Game1.options.uiScale), (int) (24 * Game1.options.uiScale)).Contains(Game1.getMouseX(), Game1.getMouseY()))
+                    if (new Rectangle((int)((Game1.dayTimeMoneyBox.position.X + PasekPosition.X + 24) * Game1.options.uiScale), (int)((Game1.dayTimeMoneyBox.position.Y + PasekPosition.Y + (Game1.options.zoomButtons ? 52 : 24)) * Game1.options.uiScale), (int)(108 * Game1.options.uiScale), (int)(24 * Game1.options.uiScale)).Contains(Game1.getMouseX(), Game1.getMouseY()))
                     {
                         foreach (PlayerList gracz in Gracze)
                         {
@@ -254,7 +290,7 @@ namespace MultiplayerTime
             {
                 if (e.Peer.GetMod("lolmaj.MultiplayerTime") == null)
                 {
-                    Game1.chatBox.addMessage(Game1.getOnlineFarmers().FirstOrDefault(p => p.UniqueMultiplayerID == e.Peer.PlayerID)?.Name ?? e.Peer.PlayerID.ToString() + " does not have Multiplayer Time mod",Color.Red);
+                    Game1.chatBox.addMessage(Game1.getOnlineFarmers().FirstOrDefault(p => p.UniqueMultiplayerID == e.Peer.PlayerID)?.Name ?? e.Peer.PlayerID.ToString() + " does not have Multiplayer Time mod", Color.Red);
                 }
             }
         }
@@ -262,7 +298,7 @@ namespace MultiplayerTime
         private void PlayerDisconnected(object sender, PeerDisconnectedEventArgs e)
         {
             bool paused = !ShouldTimePass();
-            for (int i = Gracze.Count-1; i >= 0; i--)
+            for (int i = Gracze.Count - 1; i >= 0; i--)
             {
                 if (Gracze[i].PlayerID == e.Peer.PlayerID)
                 {
@@ -360,6 +396,34 @@ namespace MultiplayerTime
             }
         }
 
+        public void OnLocaleChanged(object sender, LocaleChangedEventArgs e)
+        {
+            if (this.Config.HourFormat == "Default")
+            {
+                if (Helper.Translation.Get("Default") == "12")
+                {
+                    hourFormat = true;
+                }
+                else
+                {
+                    hourFormat = false;
+                }
+            }
+            else if (this.Config.HourFormat == "12")
+            {
+                hourFormat = true;
+            }
+            else
+            {
+                hourFormat = false;
+            }
+        }
+
+        public void OnTitle(object sender, ReturnedToTitleEventArgs e)
+        {
+            Gracze.Clear();
+        }
+
         private void PreRenderHud(object sender, EventArgs e)
         {
             if (!ShouldTimePass())
@@ -375,7 +439,7 @@ namespace MultiplayerTime
 
         private void PostRenderHud(object sender, EventArgs e)
         {
-            if (!ShouldTimePass())
+            if (Context.IsWorldReady && !ShouldTimePass())
             {
                 DrawFade(Game1.spriteBatch);
             }
@@ -386,7 +450,7 @@ namespace MultiplayerTime
         {
             if (Context.IsWorldReady && !this.Config.InvisibleUI)
             {
-                if (!Game1.isFestival() && !(Game1.farmEvent!=null && (Game1.farmEvent is FairyEvent || Game1.farmEvent is WitchEvent || Game1.farmEvent is SoundInTheNightEvent)) && (Game1.eventUp || Game1.currentMinigame != null || Game1.activeClickableMenu is AnimalQueryMenu || Game1.activeClickableMenu is PurchaseAnimalsMenu || Game1.activeClickableMenu is CarpenterMenu || Game1.freezeControls))
+                if (!Game1.isFestival() && !(Game1.farmEvent != null && (Game1.farmEvent is FairyEvent || Game1.farmEvent is WitchEvent || Game1.farmEvent is SoundInTheNightEvent)) && (Game1.eventUp || Game1.currentMinigame != null || Game1.activeClickableMenu is AnimalQueryMenu || Game1.activeClickableMenu is PurchaseAnimalsMenu || Game1.activeClickableMenu is CarpenterMenu || Game1.freezeControls))
                 {
                     Game1.textColor *= 0f;
                     Game1.dayTimeMoneyBox.timeShakeTimer = 0;
@@ -417,7 +481,7 @@ namespace MultiplayerTime
                 bool paused = !ShouldTimePass();
                 if (Me.message != 1 && (!Context.IsPlayerFree || (Game1.currentMinigame != null && (Game1.currentMinigame.minigameId() == "PrairieKing" || Game1.currentMinigame.minigameId() == nameof(CraneGame) || Game1.currentMinigame.minigameId() == nameof(Slots))) || (!Context.CanPlayerMove && !Game1.player.UsingTool) || Game1.freezeControls || Game1.activeClickableMenu is BobberBar))
                 {
-                    this.Helper.Multiplayer.SendMessage(1, "pause?", modIDs: new[] { this.ModManifest.UniqueID});
+                    this.Helper.Multiplayer.SendMessage(1, "pause?", modIDs: new[] { this.ModManifest.UniqueID });
                     Me.message = 1;
                 }
                 if (Me.message != 0 && Context.IsPlayerFree && Game1.currentMinigame == null && !Game1.freezeControls && (Context.CanPlayerMove || Game1.player.UsingTool))
@@ -456,72 +520,46 @@ namespace MultiplayerTime
                 }
                 if (JustPaused)
                 {
-                    if (Game1.buffsDisplay.food != null)
+                    foreach (Buff value in Game1.player.buffs.AppliedBuffs.Values)
                     {
-                        food = new Buffs(Game1.buffsDisplay.food,Game1.buffsDisplay.food.millisecondsDuration);
-                    }
-                    if (Game1.buffsDisplay.drink != null)
-                    {
-                        drink = new Buffs(Game1.buffsDisplay.drink, Game1.buffsDisplay.drink.millisecondsDuration);
-                    }
-                    foreach (Buff buff in Game1.buffsDisplay.otherBuffs)
-                    {
-                        buffs.Add(new Buffs(buff, buff.millisecondsDuration));
+                        buffs.Add(new Buffs(value, value.millisecondsDuration));
                     }
                 }
                 if (!ShouldTimePass())
                 {
-                    if( food != null && food.buff == Game1.buffsDisplay.food)
-                    {
-                        Game1.buffsDisplay.food.millisecondsDuration = food.duration;
-                    }
-                    else
-                    {
-                        if(Game1.buffsDisplay.food != null)
-                        {
-                            food = new Buffs(Game1.buffsDisplay.food, Game1.buffsDisplay.food.millisecondsDuration);
-                        }
-                        else
-                        {
-                            food = null;
-                        }
-                    }
-                    if (drink != null && drink.buff == Game1.buffsDisplay.drink)
-                    {
-                        Game1.buffsDisplay.drink.millisecondsDuration = drink.duration;
-                    }
-                    else
-                    {
-                        if (Game1.buffsDisplay.drink != null)
-                        {
-                            drink = new Buffs(Game1.buffsDisplay.drink, Game1.buffsDisplay.drink.millisecondsDuration);
-                        }
-                        else
-                        {
-                            drink = null;
-                        }
-                    }
-                    foreach (Buff buff in Game1.buffsDisplay.otherBuffs)
+                    foreach (Buff value in Game1.player.buffs.AppliedBuffs.Values)
                     {
                         bool handled = false;
                         foreach (Buffs b in buffs)
                         {
-                            if(buff == b.buff)
+                            if (value == b.buff)
                             {
-                                buff.millisecondsDuration = b.duration;
+                                value.millisecondsDuration = b.duration;
                                 handled = true;
                                 break;
                             }
                         }
                         if (handled == false)
                         {
-                            switch (buff.which)
+                            switch (value.id)
                             {
-                                case 12: case 13: case 14: case 19: case 25: case 26: case 27:
-                                    buff.millisecondsDuration = 0;
+                                case "12":
+                                case "13":
+                                case "14":
+                                case "19":
+                                case "25":
+                                case "26":
+                                case "27":
+                                    value.millisecondsDuration = 0;
                                     break;
-                                case 17: case 20: case 21: case 22: case 23: case 24: case 28:
-                                    buffs.Add(new Buffs(buff, buff.millisecondsDuration));
+                                case "17":
+                                case "20":
+                                case "21":
+                                case "22":
+                                case "23":
+                                case "24":
+                                case "28":
+                                    buffs.Add(new Buffs(value, value.millisecondsDuration));
                                     break;
                             }
                         }
@@ -529,8 +567,6 @@ namespace MultiplayerTime
                 }
                 if (JustUnpaused)
                 {
-                    food = null;
-                    drink = null;
                     buffs.Clear();
                 }
                 if (Context.IsMainPlayer)
@@ -788,7 +824,8 @@ namespace MultiplayerTime
             }
         }
 
-        private static string[] MonsterInfo(string name) {
+        private static string[] MonsterInfo(string name)
+        {
             if (name == "Haunted Skull")
             {
                 return MonsterInfo("Lava Bat");
@@ -817,39 +854,76 @@ namespace MultiplayerTime
 
         private void DrawFade(SpriteBatch b)
         {
-            string text = Game1.shortDayNameFromDayOfSeason(Game1.dayOfMonth) + ". " + Game1.dayOfMonth;
-            Vector2 dayPosition = new((float)Math.Floor(183.5f - Game1.dialogueFont.MeasureString(text).X / 2), (float)18);
-            b.DrawString(Game1.dialogueFont, text, Game1.dayTimeMoneyBox.position + dayPosition, textColor);
-            string timeofDay = (Game1.timeOfDay < 1200 || Game1.timeOfDay >= 2400) ? " am" : " pm";
+            string text;
+            switch (Game1.dayOfMonth % 7)
+            {
+                case 0:
+                    text = Helper.Translation.Get("Sunday", tokens: new { day = Game1.dayOfMonth });
+                    break;
+                case 1:
+                    text = Helper.Translation.Get("Monday", tokens: new { day = Game1.dayOfMonth });
+                    break;
+                case 2:
+                    text = Helper.Translation.Get("Tuesday", tokens: new { day = Game1.dayOfMonth });
+                    break;
+                case 3:
+                    text = Helper.Translation.Get("Wednesday", tokens: new { day = Game1.dayOfMonth });
+                    break;
+                case 4:
+                    text = Helper.Translation.Get("Thursday", tokens: new { day = Game1.dayOfMonth });
+                    break;
+                case 5:
+                    text = Helper.Translation.Get("Friday", tokens: new { day = Game1.dayOfMonth });
+                    break;
+                case 6:
+                    text = Helper.Translation.Get("Saturday", tokens: new { day = Game1.dayOfMonth });
+                    break;
+                default:
+                    text = "";
+                    break;
+            }
+            Vector2 dayPosition = new((float)Math.Floor(187 - ((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ko) ? Game1.smallFont : Game1.dialogueFont).MeasureString(text).X / 2), (float)Math.Floor(43 - ((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ko) ? Game1.smallFont : Game1.dialogueFont).MeasureString(text).Y / 2));
+            b.DrawString((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ko) ? Game1.smallFont : Game1.dialogueFont, text, Game1.dayTimeMoneyBox.position + dayPosition, textColor);
             string zeroPad = (Game1.timeOfDay % 100 == 0) ? "0" : "";
-            string hours = (Game1.timeOfDay / 100 % 12 == 0) ? "12" : string.Concat(Game1.timeOfDay / 100 % 12);
-            string time = string.Concat(new object[]
+            string hours;
+            if (!hourFormat)
+            {
+                hours = (Game1.timeOfDay / 100 % 24 == 0) ? "00" : string.Concat(Game1.timeOfDay < 1000 ? "0" : "", Game1.timeOfDay / 100 % 24);
+            }
+            else
+            {
+                hours = (Game1.timeOfDay / 100 % 12 == 0) ? "12" : string.Concat(Game1.timeOfDay / 100 % 12);
+            }
+            string Time = string.Concat(new object[]
             {
                 hours,
                 ":",
                 Game1.timeOfDay % 100,
-                zeroPad,
-                timeofDay
+                zeroPad
             });
-            Vector2 timePosition = new((float)Math.Floor(183.5 - Game1.dialogueFont.MeasureString(time).X / 2), (float)108);
+            if (hourFormat)
+            {
+                Time = Helper.Translation.Get((Game1.timeOfDay < 1200 || Game1.timeOfDay >= 2400) ? "AM" : "PM", tokens: new { time = Time });
+            }
+            Vector2 timePosition = new((float)Math.Floor(183 - ((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ko) ? Game1.smallFont : Game1.dialogueFont).MeasureString(Time).X / 2), (float)Math.Floor(133.5f - ((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ko) ? Game1.smallFont : Game1.dialogueFont).MeasureString(text).Y / 2));
             bool nofade = ShouldTimePass() || Game1.currentGameTime.TotalGameTime.TotalMilliseconds % 2000.0 > 1000.0;
-            b.DrawString(Game1.dialogueFont, time, Game1.dayTimeMoneyBox.position + timePosition, (Game1.timeOfDay >= 2400) ? Color.Red : (textColor * (nofade ? 1f : 0.5f)));
+            b.DrawString((LocalizedContentManager.CurrentLanguageCode == LocalizedContentManager.LanguageCode.ko) ? Game1.smallFont : Game1.dialogueFont, Time, Game1.dayTimeMoneyBox.position + timePosition, (Game1.timeOfDay >= 2400) ? Color.Red : (textColor * (nofade ? 1f : 0.5f)));
         }
 
         private void DrawPasek(SpriteBatch b)
         {
-            int width = (int)(108-(Game1.getOnlineFarmers().Count-1)*4)/ Game1.getOnlineFarmers().Count;
+            int width = (int)(108 - (Game1.getOnlineFarmers().Count - 1) * 4) / Game1.getOnlineFarmers().Count;
             int i = 0;
             if (this.Config.UiInfoSuite)
             {
                 b.Draw(PasekWithUIS, Game1.dayTimeMoneyBox.position + PasekPosition, null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
             }
-            b.Draw(Game1.options.zoomButtons ? PasekZoom : Pasek, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2 (0, this.Config.UiInfoSuite ? 42 : 0), null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
+            b.Draw(Game1.options.zoomButtons ? PasekZoom : Pasek, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0), null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
             foreach (PlayerList gracz in Gracze)
             {
                 if (gracz.message != 1)
                 {
-                    b.Draw(Blue, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24,Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
+                    b.Draw(Blue, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
                     if (Context.IsMainPlayer && gracz.message == -1)
                     {
                         b.Draw(Red, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
