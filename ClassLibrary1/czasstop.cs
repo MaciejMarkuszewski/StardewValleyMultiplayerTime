@@ -111,9 +111,9 @@ namespace MultiplayerTime
             Green = helper.ModContent.Load<Texture2D>("assets/Green.png");
             Red = helper.ModContent.Load<Texture2D>("assets/Red.png");
 
-            if(this.Config.HourFormat == "Default")
+            if (this.Config.HourFormat == "Default")
             {
-                if(Helper.Translation.Get("Default") == "12")
+                if (Helper.Translation.Get("Default") == "12")
                 {
                     hourFormat = true;
                 }
@@ -196,7 +196,7 @@ namespace MultiplayerTime
                 tooltip: () => "Use default hour format for selected language or force 12 or 24 hour format if you use other mods that can change hour format",
                 getValue: () => this.Config.HourFormat,
                 setValue: value => this.Config.HourFormat = value,
-                allowedValues: new string[] { "Default", "12", "24"}
+                allowedValues: new string[] { "Default", "12", "24" }
             );
         }
 
@@ -564,6 +564,17 @@ namespace MultiplayerTime
                             }
                         }
                     }
+                    if (!Game1.eventUp && !Game1.paused)
+                    {
+                        if (Game1.player.swimming.Value)
+                        {
+                            Game1.player.swimTimer = 100;
+                        }
+                        if (Game1.player.isInBed.Value)
+                        {
+                            Game1.player.regenTimer = 100;
+                        }
+                    }
                 }
                 if (JustUnpaused)
                 {
@@ -740,14 +751,6 @@ namespace MultiplayerTime
                                 {
                                     potwor.monster.Sprite.currentFrame = potwor.info;
                                 }
-                            }
-                            if (Game1.player.swimming.Value && !Game1.eventUp && !Game1.paused)
-                            {
-                                Game1.player.swimTimer = 100;
-                            }
-                            if (Game1.player.isInBed.Value && !Game1.eventUp && !Game1.paused)
-                            {
-                                Game1.player.regenTimer = 100;
                             }
                         }
                         if (JustUnpaused)
