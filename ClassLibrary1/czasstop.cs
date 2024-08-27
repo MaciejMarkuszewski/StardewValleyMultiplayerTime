@@ -847,12 +847,12 @@ namespace MultiplayerTime
         {
             foreach (PlayerList gracz in Gracze)
             {
-                if (gracz.message != 1)
+                if (gracz.message == 1)
                 {
-                    return true;
+                    return false;
                 }
             }
-            return false;
+            return true;
         }
 
         private void DrawFade(SpriteBatch b)
