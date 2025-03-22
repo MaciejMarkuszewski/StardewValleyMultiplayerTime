@@ -22,6 +22,7 @@ namespace MultiplayerTime
         public bool UiInfoSuite { get; set; } = false;
         public bool InvisibleUI { get; set; } = false;
         public string HourFormat { get; set; } = "Default";
+        public string InterfaceTheme { get; set; } = "Default";
 
     }
 
@@ -102,14 +103,29 @@ namespace MultiplayerTime
         {
             this.Config = (ModConfig)helper.ReadConfig<ModConfig>();
 
-            Pasek = helper.ModContent.Load<Texture2D>("assets/Pasek.png");
-            Pasek = helper.ModContent.Load<Texture2D>("assets/Pasek.png");
-            PasekWithUIS = helper.ModContent.Load<Texture2D>("assets/PasekWithUIS.png");
-            PasekZoom = helper.ModContent.Load<Texture2D>("assets/PasekZoom.png");
             Black = helper.ModContent.Load<Texture2D>("assets/Black.png");
             Blue = helper.ModContent.Load<Texture2D>("assets/Blue.png");
             Green = helper.ModContent.Load<Texture2D>("assets/Green.png");
             Red = helper.ModContent.Load<Texture2D>("assets/Red.png");
+
+            switch (this.Config.InterfaceTheme)
+            {
+                case "Default":
+                    Pasek = helper.ModContent.Load<Texture2D>("assets/Pasek.png");
+                    PasekWithUIS = helper.ModContent.Load<Texture2D>("assets/PasekWithUIS.png");
+                    PasekZoom = helper.ModContent.Load<Texture2D>("assets/PasekZoom.png");
+                    break;
+                case "Vintage V2":
+                    Pasek = helper.ModContent.Load<Texture2D>("assets/PasekVintage.png");
+                    PasekWithUIS = helper.ModContent.Load<Texture2D>("assets/PasekWithUISVintage.png");
+                    PasekZoom = helper.ModContent.Load<Texture2D>("assets/PasekZoomVintage.png");
+                    break;
+                case "Natural Dark Wood":
+                    Pasek = helper.ModContent.Load<Texture2D>("assets/PasekDarkWood.png");
+                    PasekWithUIS = helper.ModContent.Load<Texture2D>("assets/PasekWithUISDarkWood.png");
+                    PasekZoom = helper.ModContent.Load<Texture2D>("assets/PasekZoomDarkWood.png");
+                    break;
+            }
 
             if (this.Config.HourFormat == "Default")
             {
@@ -198,6 +214,15 @@ namespace MultiplayerTime
                 setValue: value => this.Config.HourFormat = value,
                 allowedValues: new string[] { "Default", "12", "24" }
             );
+
+            api.AddTextOption(
+                mod: this.ModManifest,
+                name: () => "Interface Theme",
+                tooltip: () => "Use default interface theme or different if you use other mods that change the theme of interface. Restart the game after changing this option",
+                getValue: () => this.Config.InterfaceTheme,
+                setValue: value => this.Config.InterfaceTheme = value,
+                allowedValues: new string[] { "Default", "Vintage V2", "Natural Dark Wood"}
+            );
         }
 
         private void ButtonPressed(object sender, ButtonPressedEventArgs e)
@@ -235,7 +260,7 @@ namespace MultiplayerTime
                         }
                     }
                 }
-                if (e.Button == SButton.MouseLeft && this.Config.Active && Context.IsMultiplayer)
+                if (e.Button == SButton.MouseLeft && this.Config.Active && Context.HasRemotePlayers)
                 {
                     if (new Rectangle((int)((Game1.dayTimeMoneyBox.position.X + PasekPosition.X + 24) * Game1.options.uiScale), (int)((Game1.dayTimeMoneyBox.position.Y + PasekPosition.Y + (Game1.options.zoomButtons ? 52 : 24)) * Game1.options.uiScale), (int)(108 * Game1.options.uiScale), (int)(24 * Game1.options.uiScale)).Contains(Game1.getMouseX(), Game1.getMouseY()))
                     {
@@ -315,16 +340,7 @@ namespace MultiplayerTime
             }
             if (Context.IsMainPlayer)
             {
-                bool hasRemotePlayers = false;
-                foreach (Farmer gracz in Game1.getOnlineFarmers())
-                {
-                    if (!gracz.IsLocalPlayer && gracz.UniqueMultiplayerID != e.Peer.PlayerID)
-                    {
-                        hasRemotePlayers = true;
-                        break;
-                    }
-                }
-                if (!hasRemotePlayers)
+                if (!Context.HasRemotePlayers)
                 {
                     foreach (GameLocation location in locations)
                     {
@@ -431,7 +447,7 @@ namespace MultiplayerTime
                 Game1.textColor *= 0f;
                 Game1.dayTimeMoneyBox.timeShakeTimer = 0;
             }
-            if (Context.IsMultiplayer && !Game1.isFestival() && !this.Config.InvisibleUI)
+            if (Context.HasRemotePlayers && !Game1.isFestival() && !this.Config.InvisibleUI)
             {
                 DrawPasek(Game1.spriteBatch);
             }
@@ -459,7 +475,7 @@ namespace MultiplayerTime
                     Game1.dayTimeMoneyBox.draw(Game1.spriteBatch);
                     Game1.textColor = textColor;
                     DrawFade(Game1.spriteBatch);
-                    if (Context.IsMultiplayer)
+                    if (Context.HasRemotePlayers)
                     {
                         DrawPasek(Game1.spriteBatch);
                     }
@@ -582,16 +598,7 @@ namespace MultiplayerTime
                 }
                 if (Context.IsMainPlayer)
                 {
-                    bool hasRemotePlayers = false;
-                    foreach (Farmer gracz in Game1.getOnlineFarmers())
-                    {
-                        if (!gracz.IsLocalPlayer)
-                        {
-                            hasRemotePlayers = true;
-                            break;
-                        }
-                    }
-                    if (hasRemotePlayers)
+                    if (Context.HasRemotePlayers)
                     {
                         if (JustPaused)
                         {
@@ -801,20 +808,17 @@ namespace MultiplayerTime
                         }
                         if (SKTime && Game1.gameTimeInterval > 4000)
                         {
-                            bool AllSK = true;
+                            int SKCount = 0;
                             foreach (Farmer gracz in Game1.getOnlineFarmers())
                             {
-                                if (gracz.currentLocation is not MineShaft || (gracz.currentLocation as MineShaft).getMineArea() != 121 || (gracz.currentLocation as MineShaft).mustKillAllMonstersToAdvance())
+                                if (gracz.currentLocation is MineShaft && (gracz.currentLocation as MineShaft).getMineArea() == 121)
                                 {
-                                    AllSK = false;
+                                    SKCount++;
                                 }
                             }
-                            if (AllSK)
-                            {
-                                Game1.gameTimeInterval -= 1833;
-                                timeinterval -= 1833;
-                                SKTime = false;
-                            }
+                            Game1.gameTimeInterval -= 2000 * SKCount / Game1.getOnlineFarmers().Count;
+                            timeinterval -= 2000 * SKCount / Game1.getOnlineFarmers().Count;
+                            SKTime = false;
                         }
                         if (!SKTime && Game1.gameTimeInterval < 1000)
                         {
@@ -832,6 +836,10 @@ namespace MultiplayerTime
             if (name == "Haunted Skull")
             {
                 return MonsterInfo("Lava Bat");
+            }
+            if (name == "Prismatic Slime")
+            {
+                return MonsterInfo("Green Slime");
             }
             if (name == "Stick Bug")
             {
@@ -921,24 +929,24 @@ namespace MultiplayerTime
             {
                 b.Draw(PasekWithUIS, Game1.dayTimeMoneyBox.position + PasekPosition, null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
             }
-            b.Draw(Game1.options.zoomButtons ? PasekZoom : Pasek, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0), null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
+            b.Draw(Game1.options.zoomButtons ? PasekZoom : Pasek, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(0, this.Config.UiInfoSuite ? 44 : 0), null, Color.White, 0.0f, Vector2.Zero, 4, SpriteEffects.None, 0.99f);
             foreach (PlayerList gracz in Gracze)
             {
                 if (gracz.message != 1)
                 {
-                    b.Draw(Blue, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
+                    b.Draw(Blue, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 44 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
                     if (Context.IsMainPlayer && gracz.message == -1)
                     {
-                        b.Draw(Red, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
+                        b.Draw(Red, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 44 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
                     }
                 }
                 else
                 {
-                    b.Draw(Green, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
+                    b.Draw(Green, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 44 : 0) + new Vector2(i * (width + 4), 0), new Rectangle(0, 0, width, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
                 }
                 if (i != Game1.getOnlineFarmers().Count - 1)
                 {
-                    b.Draw(Black, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 42 : 0) + new Vector2(i * (width + 4) + width, 0), new Rectangle(i * (width + 4) + width, 0, 4, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
+                    b.Draw(Black, Game1.dayTimeMoneyBox.position + PasekPosition + new Vector2(24, Game1.options.zoomButtons ? 52 : 24) + new Vector2(0, this.Config.UiInfoSuite ? 44 : 0) + new Vector2(i * (width + 4) + width, 0), new Rectangle(i * (width + 4) + width, 0, 4, 24), Color.White, 0.0f, Vector2.Zero, 1, SpriteEffects.None, 0.99f);
                 }
                 i++;
             }
